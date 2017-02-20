@@ -1,0 +1,155 @@
+10/7/2009 11:43PM ported to support  FreeRTOS.org V5.0.4 with SDCC 2.80 by Dr. Aleksander Malinowski, http://gdansk.bradley.edu/olekmali/
+5/20/2011 2:38AM  updated (added F) to support FreeRTOS.org V5.0.4 with SDCC 3.00 by Dr. Aleksander Malinowski, http://gdansk.bradley.edu/olekmali/
+3/11/2013 1:30AM  updated (added G) to support FreeRTOS.org V7.4.0 with SDCC 2.80 by Dr. Aleksander Malinowski, http://gdansk.bradley.edu/olekmali/
+
+5/15/2013 6:30PM  observed that SDCC 2.80 seems to work with simple programs that use the current (V7.4.0) FreeRTOS but it does not pass the long term original stress batch of tests
+                  while SDCC 3.00 or later breaks something in the queue library between V5.0.4 and V.5.4.2 by Dr. Aleksander Malinowski, http://gdansk.bradley.edu/olekmali/
+6/17/2014 4:20PM  added H comment about correction in portmacro.h for programs other than the port demo program
+
+0.  Note that:
+    FreeRTOS.org V5.0.4 - Copyright (C) 2003-2008 Richard Barry.
+    FreeRTOS.org V7.4.0 - Copyright (C) 2003-2013 Richard Barry.
+
+    FreeRTOS.org is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+
+1.  Unpack the latest version of FreeRTOS
+    to folder D:\PROJECTS\EECES
+    with an option to preserve folders
+    Note: adapt this location to your needs
+    Preferably avoid spaces in the path
+
+
+2.  In folder D:\PROJECTS\EECES\FreeRTOS\Demo\Cygnal
+
+
+3.  In file sdcc.wsp file replace
+    E:\Dev\FreeRTOS\
+    with one that you actually use, e.g.
+    D:\PROJECTS\EECES\FreeRTOS\
+
+
+4.  In file main.c find the function implementation:
+
+        static void vRegisterCheck( void *pvParameters )
+
+    and change the beginning to:
+
+        static void vRegisterCheck( void *pvParameters )
+        {
+            ( void ) pvParameters;
+
+            for( ;; )
+            {
+                if( SP != (configSTACK_START-1) ) // <-- this line chages
+                {
+                    mainLATCH_ERROR();
+                }
+
+    and code at its end to:
+
+                // The value of 0x00 denotes type of pointer inside of an
+                // universal pointer and may be compiler version specific
+                if( B != 0x00 ) // <- this line changes
+                {
+                    mainLATCH_ERROR();
+                }
+
+
+5.  Either compile library for large-stack-auto or download the pre-compiled files
+
+
+6.  in Makefile -- correct the rule to make sure that the project is recompiled when the config file FreeRTOSConfig.h changes:
+
+        main : FreeRTOSConfig.h main.c Makefile ../../Source/portable/SDCC/Cygnal/portmacro.h $(OBJ)
+            $(CC) $(CFLAGS) main.c $(OBJ)
+
+        %.rel : %.c FreeRTOSConfig.h Makefile ../../Source/portable/SDCC/Cygnal/portmacro.h
+            $(CC) -c $(CFLAGS) -o$< $<
+
+
+
+7.  (Install if necessary and) Run make
+
+
+8.  See file main.mem, it should have stack SP set at...
+    0x21 because of the following line in file main.mem
+        Stack starts at: 0x21 (sp set to 0x20) with 223 bytes available.
+                         ^^^^
+    Edit file FreeRTOSConfig.c, and update the line
+
+        #define configSTACK_START            ( 0x0e )
+    to
+        #define configSTACK_START            ( 0x21 )
+
+
+9.  Run make again and verify the that the value 0x21 is unchanged
+
+
+A.  Load the compiled binary file to the board using SiLabs user interface
+
+
+B.  In RS232 DB-9 port on the Silabs board connect pins 2 and 3
+
+
+C.  Run the program, observe the board LED flash at about 5Hz frequency
+    When you remove the connection between pins 2 and 3,
+    or something else goes wrong it should flash quickly
+
+
+D.  When you connect RS232 to console (use USB to serial adapter if necessary)
+    you will see characters A..Z printed in an infinite loop and observe quick LED flashing
+
+
+E.  In SiLabs IDE open the project and edit:
+    in Project / Tool Chain Integration:
+    - select tool chain SDCC
+    - set assembler command line to: -plosgff
+    - set compiler command line to: -c --model-large --stack-auto --int-long-reent --float-reent -DSDCC_CYGNAL --xram-size 8448 --no-peep  --debug  --use-stdout  -V   -ID:\PROJECTS\EECES\SILABS\RTOS\r01_original -ID:\PROJECTS\EECES\SILABS\RTOS\r01_original\Common\include -ID:\PROJECTS\EECES\SILABS\RTOS\Source\include
+      but do change the include directories above to the ones actually used
+    - set linker command line to: --model-large --stack-auto --int-long-reent  --float-reent -DSDCC_CYGNAL --xram-size 8448 --no-peep --debug --use-stdout -V
+    Save the project
+    Note: If you have space in your path use ""s around -I option, I.e.: "-IDxxxx yyyy zzzz"
+
+F. In folder Source/portable/SDCC/Cygnal files port.c and portmacro.h must be edited so that extended keywords have two initial underscores:
+    - __interrupt   (search for " interrupt" and watch for use in comments)
+    - __naked       (search for "_naked")
+    - __xdata       (search for "xdata "    but watch as "xdata)" is also viable formatting)
+    - __data        (search for "data "     but watch as "data)"  is also viable formatting)
+
+G.  Newer FreeRTOS and older SDCC compilers -- Source/portable/Memmang/heap_1.c
+    may cause compiler error instead of warning.  The pointer needs to by typecast explicitly:
+        Line:
+                pucAlignedHeap = ( unsigned char * ) ( ( ( portPOINTER_SIZE_TYPE ) &ucHeap[ portBYTE_ALIGNMENT ] ) & ( ( portPOINTER_SIZE_TYPE ) ~portBYTE_ALIGNMENT_MASK ) );
+        should be changed to:
+                pucAlignedHeap = ( __xdata unsigned char * ) ( ( ( portPOINTER_SIZE_TYPE ) &ucHeap[ portBYTE_ALIGNMENT ] ) & ( ( portPOINTER_SIZE_TYPE ) ~portBYTE_ALIGNMENT_MASK ) );
+        because:
+                The heap is located in __xdata space when memory model is large which is the case of FreeRTOS
+
+H.  When working with your own projects -- remove UART0 interrupt ISR prototype from Source\portable\SDCC\Cygnal\portmacro.h
+        Line:
+            void vSerialISR( void ) __interrupt 4;
+        should be changed to:
+            /*
+             * removed from portmacro.h where it was incorrectly placed  - needed only by the port demo program
+             */
+            // void vSerialISR( void ) __interrupt 4;
+
+I.  D.o.n.e.
+
+
+
+The SDCC compiler options in SiLabs IDE are:
+
+Assembler:
+-plosgff
+
+Compiler:
+-c --model-large --stack-auto --int-long-reent --float-reent "-ID:\PROJECTS\RTOS\SILABS\RTOS\homework"  "-ID:\PROJECTS\RTOS\SILABS\RTOS\Source\include" -DSDCC_CYGNAL --xram-size 8448 --no-peep --debug --use-stdout -V
+
+Linker:
+--model-large --stack-auto --int-long-reent  --float-reent -DSDCC_CYGNAL --xram-size 8448 --no-peep --debug --use-stdout -V
+
