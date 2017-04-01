@@ -80,7 +80,7 @@ static void userSend1( void *pvParameters )
 {
     char buffer[mainCOM_TEST_MAX_CHUNK];
     unsigned char n;
-    struct Send_param_t* params = (Send_param_t*) pvParameters;
+    struct Send_param_t* params = pvParameters;
     if ( params->num > (mainCOM_TEST_MAX_CHUNK-1) )
         params->num = (mainCOM_TEST_MAX_CHUNK-1);
     for(n=0; n<params->num; n++) buffer[n]= params->chr;
