@@ -15,8 +15,8 @@ __data static unsigned portBASE_TYPE uxTxEmpty;
 /* Contents of this function may be (C)SiliconLabs as it is taken from their demo program */
 xComPortHandle xSerialPortInitMinimal( unsigned portLONG ulWantedBaud, unsigned portBASE_TYPE uxInQueueLength, unsigned portBASE_TYPE uxOutQueueLength )
 {
-unsigned portCHAR ucOriginalSFRPage = SFRPAGE;
-const unsigned portLONG sysclkoverbaud = configCPU_CLOCK_HZ/ulWantedBaud;
+    unsigned portCHAR ucOriginalSFRPage = SFRPAGE;
+    const unsigned portLONG sysclkoverbaud = configCPU_CLOCK_HZ/ulWantedBaud;
 
     portENTER_CRITICAL();
     {
@@ -86,9 +86,9 @@ const unsigned portLONG sysclkoverbaud = configCPU_CLOCK_HZ/ulWantedBaud;
 /* Contents of this function may be GNU-(C) by FreeRTOS.org as it is taken from their demo program of FreeRTOS */
 void vUart1_ISR( void ) __interrupt 20
 {
-    unsigned portCHAR ucOriginalSFRPage;
-    portCHAR cChar;
-    portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+    static unsigned portCHAR ucOriginalSFRPage;
+    static portCHAR cChar;
+    static portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
 
     /* 8051 port interrupt routines MUST be placed within a critical section
     if taskYIELD() is used within the ISR! */
